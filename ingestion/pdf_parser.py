@@ -1,33 +1,30 @@
-from pathlib import Path
 import fitz
+from pathlib import Path
 
 
 def extract_text(file_path):
-    """
-    Extract text from a PDF file.
+    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        return f.read()
 
-    Args:
-        file_path (str): Path to PDF file
+    if path.suffix == ".txt":
 
-    Returns:
-        str: Extracted text
-    """
+        with open(
+            file_path,
+            "r",
+            encoding="utf-8",
+            errors="ignore"
+        ) as f:
 
-    file_path = Path(file_path)
+            return f.read()
 
-    if not file_path.exists():
-        print(f"File not found: {file_path}")
-        return ""
+    doc = fitz.open(file_path)
 
-    text = ""
+    pages = []
 
-    try:
-        with fitz.open(file_path) as document:
-            for page in document:
-                text += page.get_text()
+    for page in doc:
 
-        return text
+        pages.append(
+            page.get_text()
+        )
 
-    except Exception as e:
-        print(f"Error reading PDF: {e}")
-        return ""
+    return "\n".join(pages)
