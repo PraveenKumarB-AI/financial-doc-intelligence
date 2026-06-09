@@ -1,0 +1,7 @@
+sec-edgar-downloader
+pymupdf
+langchain
+python-dotenv
+pandas
+tqdm
+
