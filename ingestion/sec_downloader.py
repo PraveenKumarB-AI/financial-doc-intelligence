@@ -7,7 +7,7 @@ def download_filings():
 
     dl = Downloader(
         "Praveen Kumar",
-        "praveenkumarbotta999@gmail.com",
+        "praveen.b@mycvhire.com",
         "data/raw"
     )
 
