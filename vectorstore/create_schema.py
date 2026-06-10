@@ -1,18 +1,13 @@
 from vectorstore.database import get_connection
 
 conn = get_connection()
+cur = conn.cursor()
 
-cursor = conn.cursor()
-
-with open(
-    "vectorstore/schema.sql",
-    "r"
-) as f:
-    cursor.execute(f.read())
+with open("vectorstore/schema.sql") as f:
+    cur.execute(f.read())
 
 conn.commit()
-
-cursor.close()
+cur.close()
 conn.close()
 
-print("Schema Created")
+print("Schema created successfully!")

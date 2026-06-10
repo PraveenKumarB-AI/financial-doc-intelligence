@@ -5,7 +5,9 @@ model = SentenceTransformer(
 )
 
 def generate_embedding(text):
+    """
+    Generate embedding vector.
+    """
+    embedding = model.encode(text)
+    return embedding.tolist()
 
-    return model.encode(
-        text
-    ).tolist()
