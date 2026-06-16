@@ -1,0 +1,18 @@
+[
+    {
+        "question": "Who is the CEO?",
+        "expected": "Timothy D. Cook"
+    },
+    {
+        "question": "Who is the CFO?",
+        "expected": "Luca Maestri"
+    },
+    {
+        "question": "What company is this filing about?",
+        "expected": "Apple Inc."
+    },
+    {
+        "question": "What is the company address?",
+        "expected": "One Apple Park Way"
+    }
+]

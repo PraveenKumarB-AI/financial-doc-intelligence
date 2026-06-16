@@ -1,19 +1,42 @@
-from vectorstore.search import search
+from analytics.company_detector import (
+    detect_company
+)
+
+from vectorstore.search import (
+    search
+)
+
+from rag.text_cleaner import (
+    clean_text
+)
 
 
-def retrieve_context(
-    question,
-    k=5
-):
+def retrieve_context(question):
 
-    results = search(question)
+    company = detect_company(
+        question
+    )
+
+    print(
+        f"Detected Company: {company}"
+    )
+
+    results = search(
+        question
+    )
 
     context = []
 
     for row in results:
 
-        context.append(
+        cleaned_chunk = clean_text(
             row[0]
         )
 
-    return "\n\n".join(context)
+        context.append(
+            cleaned_chunk
+        )
+
+    return "\n\n".join(
+        context
+    )

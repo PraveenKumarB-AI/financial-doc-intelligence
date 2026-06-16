@@ -1,26 +1,32 @@
-from ollama import chat
+try:
+    from llm.llm_client import generate_response
+except ModuleNotFoundError:
+    def generate_response(*args, **kwargs):
+        raise RuntimeError(
+            "LLM not implemented yet (Module 7). The /ask endpoint is disabled "
+            "until llm/llm_client.py exists. /stats and the rest of the API work."
+        )
 
 from rag.retriever import retrieve_context
-from rag.prompts import RAG_PROMPT
 
 
 def ask_question(question):
-
     context = retrieve_context(question)
-
-    prompt = RAG_PROMPT.format(
-        context=context,
-        question=question
-    )
-
-    response = chat(
-        model="llama3",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    return response["message"]["content"]
+    prompt = f"""
+You are a financial analyst assistant.
+Answer using ONLY the provided context.
+Rules:
+- Give short and direct answers.
+- Do not say "According to the provided context".
+- Do not mention HTML tags.
+- Do not copy raw formatting.
+- If the answer is not found, say:
+  "I could not find that information in the filing."
+Context:
+{context}
+Question:
+{question}
+Answer:
+"""
+    answer = generate_response(prompt)
+    return answer
