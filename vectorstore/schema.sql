@@ -9,3 +9,12 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     source      TEXT,
     created_at  TIMESTAMP DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS financial_metrics (
+    id           SERIAL PRIMARY KEY,
+    company      TEXT,
+    fiscal_year  TEXT,
+    metric_name  TEXT,
+    metric_value TEXT,
+    unit         TEXT,
+    created_at   TIMESTAMP DEFAULT NOW()
+);
