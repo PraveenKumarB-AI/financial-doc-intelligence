@@ -1,0 +1,202 @@
+{
+  "timestamp": "2026-06-16_16-33",
+  "total": 15,
+  "passed": 14,
+  "accuracy_pct": 93,
+  "avg_latency_s": 7.3,
+  "by_company": {
+    "Apple Inc.": {
+      "pass": 5,
+      "total": 5
+    },
+    "Microsoft Corporation": {
+      "pass": 5,
+      "total": 5
+    },
+    "Tesla, Inc.": {
+      "pass": 4,
+      "total": 5
+    }
+  },
+  "by_category": {
+    "leadership": {
+      "pass": 5,
+      "total": 6
+    },
+    "financials": {
+      "pass": 5,
+      "total": 5
+    },
+    "business": {
+      "pass": 4,
+      "total": 4
+    }
+  },
+  "results": [
+    {
+      "id": "aapl_01",
+      "company": "Apple Inc.",
+      "category": "leadership",
+      "question": "Who is the CEO of Apple?",
+      "expected": "Timothy D. Cook",
+      "actual": "Timothy D. Cook",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 8.6
+    },
+    {
+      "id": "aapl_02",
+      "company": "Apple Inc.",
+      "category": "leadership",
+      "question": "Who is the CFO of Apple?",
+      "expected": "Kevan Parekh",
+      "actual": "Kevan Parekh",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 5.2
+    },
+    {
+      "id": "aapl_03",
+      "company": "Apple Inc.",
+      "category": "financials",
+      "question": "What is Apple's total revenue for fiscal year 2025?",
+      "expected": "400869",
+      "actual": "Total net sales: $416,161",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 8.7
+    },
+    {
+      "id": "aapl_04",
+      "company": "Apple Inc.",
+      "category": "financials",
+      "question": "What is Apple's net income for fiscal year 2025?",
+      "expected": "112010",
+      "actual": "$112,010",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 9.3
+    },
+    {
+      "id": "aapl_05",
+      "company": "Apple Inc.",
+      "category": "business",
+      "question": "What are Apple's main products?",
+      "expected": "iPhone Mac iPad Wearables Services",
+      "actual": "Apple designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories, and sells a variety of related services.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 7.0
+    },
+    {
+      "id": "msft_01",
+      "company": "Microsoft Corporation",
+      "category": "leadership",
+      "question": "Who is the CEO of Microsoft?",
+      "expected": "Satya Nadella",
+      "actual": "Mr. Nadella",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 6.8
+    },
+    {
+      "id": "msft_02",
+      "company": "Microsoft Corporation",
+      "category": "leadership",
+      "question": "Who is the CFO of Microsoft?",
+      "expected": "Amy Hood",
+      "actual": "Amy E. Hood.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 7.1
+    },
+    {
+      "id": "msft_03",
+      "company": "Microsoft Corporation",
+      "category": "financials",
+      "question": "What is Microsoft's total revenue for fiscal year 2025?",
+      "expected": "279009",
+      "actual": "$281,724 million.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 8.3
+    },
+    {
+      "id": "msft_04",
+      "company": "Microsoft Corporation",
+      "category": "financials",
+      "question": "What is Microsoft's net income for fiscal year 2025?",
+      "expected": "101832",
+      "actual": "101,832 million",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 7.5
+    },
+    {
+      "id": "msft_05",
+      "company": "Microsoft Corporation",
+      "category": "business",
+      "question": "What is Microsoft's main cloud product?",
+      "expected": "Azure",
+      "actual": "Azure.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 6.3
+    },
+    {
+      "id": "tsla_01",
+      "company": "Tesla, Inc.",
+      "category": "leadership",
+      "question": "Who is the CEO of Tesla?",
+      "expected": "Elon Musk",
+      "actual": "Elon Musk.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 6.2
+    },
+    {
+      "id": "tsla_02",
+      "company": "Tesla, Inc.",
+      "category": "leadership",
+      "question": "Who is the CFO of Tesla?",
+      "expected": "Vaibhav Taneja",
+      "actual": "I could not find that information in the filing.",
+      "retrieval_hit": true,
+      "correct": false,
+      "latency_s": 7.5
+    },
+    {
+      "id": "tsla_03",
+      "company": "Tesla, Inc.",
+      "category": "financials",
+      "question": "What is Tesla's total revenue for fiscal year 2025?",
+      "expected": "97690",
+      "actual": "Tesla's total revenue for fiscal year 2025 was $94.827 billion.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 8.8
+    },
+    {
+      "id": "tsla_04",
+      "company": "Tesla, Inc.",
+      "category": "business",
+      "question": "What does Tesla manufacture?",
+      "expected": "electric vehicles energy storage solar",
+      "actual": "Tesla manufactures electric vehicles, autonomous solutions, and other products.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 6.5
+    },
+    {
+      "id": "tsla_05",
+      "company": "Tesla, Inc.",
+      "category": "business",
+      "question": "What is Tesla's main vehicle model?",
+      "expected": "Model 3 Model Y Model S Model X",
+      "actual": "The Model 3, Y, S, X, and Cybertruck are our five different consumer vehicles.",
+      "retrieval_hit": true,
+      "correct": true,
+      "latency_s": 6.3
+    }
+  ]
+}
