@@ -2,6 +2,9 @@ import streamlit as st
 import requests
 import pandas as pd
 from streamlit_option_menu import option_menu
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 st.set_page_config(
     page_title="Financial AI Platform",
@@ -86,8 +89,10 @@ if selected == "Ask AI":
                     response = requests.post(
                         "http://127.0.0.1:8000/ask",
                         json={"question": question},
+                        headers={"X-API-Key": os.getenv("API_KEY", "findoc-demo-key-2026")},
                         timeout=120
-                    )
+)
+                    
                     answer = response.json()["answer"]
                 except Exception as e:
                     answer = f"API error: {e}"
