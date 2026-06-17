@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import pandas as pd
 from streamlit_option_menu import option_menu
 
 st.set_page_config(
@@ -8,7 +9,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Session State
 if "history" not in st.session_state:
     st.session_state.history = []
 
@@ -45,12 +45,11 @@ def render_stats():
         return
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Companies", stats.get("total_companies", 0))
-    c2.metric("Filings", stats.get("total_filings", 0))
-    c3.metric("Chunks", stats.get("total_chunks", 0))
+    c2.metric("Filings",   stats.get("total_filings", 0))
+    c3.metric("Chunks",    f"{stats.get('total_chunks', 0):,}")
     c4.metric("Last updated", str(stats.get("last_updated", "—"))[:16])
 
 
-# Sidebar
 with st.sidebar:
     st.header("Question History")
     if len(st.session_state.history) == 0:
@@ -59,7 +58,6 @@ with st.sidebar:
         for q in reversed(st.session_state.history):
             st.write("•", q)
 
-# Hero
 st.markdown("""
 <div class="hero">
 <h1>📈 Financial AI Platform</h1>
@@ -67,7 +65,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Menu — must come before any "if selected ==" check
 selected = option_menu(
     menu_title=None,
     options=["Ask AI", "System Stats", "Financials"],
@@ -79,17 +76,21 @@ if selected == "Ask AI":
     render_stats()
     question = st.text_input(
         "Ask a financial question",
-        placeholder="Who is the CEO?"
+        placeholder="Who is the CEO of Microsoft?"
     )
     if st.button("Analyze"):
         if question:
             st.session_state.history.append(question)
             with st.spinner("Analyzing financial documents..."):
-                response = requests.post(
-                    "http://127.0.0.1:8000/ask",
-                    json={"question": question}
-                )
-                answer = response.json()["answer"]
+                try:
+                    response = requests.post(
+                        "http://127.0.0.1:8000/ask",
+                        json={"question": question},
+                        timeout=120
+                    )
+                    answer = response.json()["answer"]
+                except Exception as e:
+                    answer = f"API error: {e}"
                 st.markdown(
                     f"""
                     <div class="answer">
@@ -104,8 +105,7 @@ if selected == "System Stats":
     st.subheader("Live Knowledge Base")
     render_stats()
     st.subheader("RAG Architecture")
-    st.code(
-"""
+    st.code("""
 SEC Filing
      ↓
 Parser
@@ -121,8 +121,7 @@ Retriever
 Llama 3
      ↓
 Answer
-"""
-    )
+""")
     st.success("Live data connected — pgvector + document_chunks")
 
 if selected == "Financials":
@@ -134,23 +133,25 @@ if selected == "Financials":
         ).json()
         company_list = ["All"] + company_resp.get("companies", [])
         selected_company = st.selectbox("Select company", company_list)
+
         params = {}
         if selected_company != "All":
             params["company"] = selected_company
+
         data = requests.get(
             "http://127.0.0.1:8000/metrics",
             params=params,
             timeout=5
         ).json()
         rows = data.get("metrics", [])
+
         if rows:
-            st.table({
-                "Company":     [r["company"] for r in rows],
-                "Fiscal Year": [r["fiscal_year"] for r in rows],
-                "Metric":      [r["metric"] for r in rows],
-                "Value (M)":   [r["value"] for r in rows],
-            })
+            df = pd.DataFrame(rows)
+            df.columns = ["Company", "Fiscal Year", "Metric", "Value"]
+            df["Metric"] = df["Metric"].str.replace("_", " ").str.title()
+            st.dataframe(df, use_container_width=True, hide_index=True)
         else:
-            st.info("No metrics extracted yet.")
-    except Exception:
-        st.warning("Metrics unavailable — is the API running on port 8000?")
+            st.info("No metrics found. Run: python -m vectorstore.financial_extractor")
+
+    except Exception as e:
+        st.warning(f"Metrics unavailable: {e} — is the API running on port 8000?")
