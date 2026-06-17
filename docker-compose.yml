@@ -1,0 +1,54 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: findoc_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: financial_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - findoc_pgdata:/var/lib/postgresql/data
+      - ./vectorstore/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: findoc_api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: financial_rag
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      OLLAMA_HOST: "http://host.docker.internal:11434"
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: uvicorn api.app:app --host 0.0.0.0 --port 8000
+
+  ui:
+    build: .
+    container_name: findoc_ui
+    restart: always
+    depends_on:
+      - api
+    environment:
+      API_URL: "http://api:8000"
+    ports:
+      - "8501:8501"
+    command: streamlit run ui/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+
+volumes:
+  findoc_pgdata:
