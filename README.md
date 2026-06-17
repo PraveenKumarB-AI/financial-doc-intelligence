@@ -3,7 +3,7 @@
 An AI-powered system that downloads, processes, and answers natural-language
 questions about SEC financial filings using Retrieval-Augmented Generation
 (RAG). It runs entirely on a free, local stack — no paid APIs, no paid cloud.
-Fully containerized with Docker.
+Fully containerized with Docker, secured with API-key auth and rate limiting.
 
 ---
 
@@ -15,7 +15,8 @@ relevant chunks per question (automatically scoped to the right company), and
 answers using a locally hosted Llama 3 model via Ollama. A FastAPI service and
 Streamlit UI sit on top, with live stats, a financial metrics panel, a fully
 measured RAG evaluation harness, structured JSON request logging, a 36-test
-pytest suite, and a one-command Docker deployment.
+pytest suite, one-command Docker deployment, and API-key authentication with
+per-client rate limiting.
 
 ---
 
@@ -31,6 +32,7 @@ pytest suite, and a one-command Docker deployment.
 | Logging | Python `logging` + structured JSON |
 | Testing | pytest (36 tests) |
 | Containerization | Docker + docker-compose |
+| Security | API-key auth + slowapi rate limiting + python-dotenv |
 | Data source | SEC EDGAR (public, free, no API key) |
 
 ---
@@ -43,8 +45,9 @@ company name and fiscal year. Questions are automatically routed to the right
 company's data. Structured financial metrics are extracted per company using
 Llama 3. A measured evaluation harness confirms 93% accuracy across 15 gold
 Q&A pairs. Every API request is logged to a structured JSON file, a 36-test
-pytest suite covers the core logic, and the whole stack (Postgres + API + UI)
-is containerized.
+pytest suite covers the core logic, the whole stack is containerized, and the
+expensive `/ask` endpoint is protected by API-key auth and rate limiting with
+all secrets held in a `.env` file.
 
 ---
 
@@ -78,6 +81,47 @@ Run anytime with: `python -m evaluation.run_eval`
 | Business category | 4/4 (100%) |
 
 *Evaluated June 16, 2026. LLM judge: local Llama 3 via Ollama.*
+
+---
+
+## Security (Module 20)
+
+The API uses API-key authentication and per-client rate limiting.
+
+**API key** — the expensive `/ask` endpoint requires an `X-API-Key` header.
+Missing or wrong key returns `401 Unauthorized`. Read endpoints (`/stats`,
+`/companies`, `/metrics`) stay open so the data is viewable in a demo.
+
+```bash
+# Rejected — no key
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Who is the CEO of Apple?"}'
+# → {"detail":"Invalid or missing API key"}
+
+# Accepted — with key
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <your-key>" \
+  -d '{"question": "Who is the CEO of Apple?"}'
+```
+
+**Rate limiting** — `/ask` is limited to 20 requests/minute per IP via
+`slowapi`. Exceeding it returns `429 Too Many Requests`.
+
+**Secrets** — database credentials and the API key live in a `.env` file
+(git-ignored), loaded via `python-dotenv`. `database.py` and `app.py` read
+from the environment, so the same code runs locally and in Docker.
+
+```
+# .env (not committed)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=financial_rag
+DB_USER=praveenkumarbotta
+DB_PASSWORD=
+API_KEY=your-secret-key
+```
 
 ---
 
@@ -144,11 +188,9 @@ needed) while everything else is containerized.
 
 **Notes:**
 - The Dockerfile installs CPU-only PyTorch (`--index-url https://download.pytorch.org/whl/cpu`) to avoid pulling ~2GB of unused CUDA GPU libraries.
-- `database.py` reads its connection settings from environment variables
-  (`DB_HOST`, `DB_USER`, etc.), defaulting to local values so the same code
-  works both in Docker and on the host.
-- Ollama must be running on the host (`ollama serve` / Ollama app) before
-  asking questions.
+- `database.py` and `app.py` read settings from environment variables, so the
+  same code works in Docker and on the host.
+- Ollama must be running on the host before asking questions.
 
 **Load data into the containers:**
 ```bash
@@ -221,17 +263,20 @@ time — the containers own ports 8000 and 8501.
 - **Module 19 — Dockerization.** Three-container docker-compose stack
   (Postgres + pgvector, FastAPI, Streamlit) starting with one command. Schema
   auto-loaded on startup. CPU-only PyTorch keeps the image lean. The API
-  reaches host Ollama via `host.docker.internal`. `database.py` reads
-  connection settings from environment variables so the same code runs in
-  Docker and locally.
+  reaches host Ollama via `host.docker.internal`. Connection settings read
+  from environment variables so the same code runs in Docker and locally.
+- **Module 20 — Auth & Rate Limiting.** The `/ask` endpoint requires an
+  `X-API-Key` header (401 if missing/wrong) and is rate-limited to 20
+  requests/minute per IP via `slowapi` (429 if exceeded). Database
+  credentials and the API key moved to a git-ignored `.env` file loaded with
+  `python-dotenv`. The Streamlit UI sends the key automatically so the Ask AI
+  tab keeps working.
 
 ### In progress / next
 
-- **Module 20 — Auth & Rate Limiting.** API key authentication and per-client
-  rate limits on the FastAPI layer; move credentials fully to `.env`.
-- **Module 21 — CI/CD + Free Cloud Deploy.** GitHub Actions CI on every push;
-  deploy to Oracle Always-Free VM or Hugging Face Spaces (free Groq LLM
-  endpoint for hosted version).
+- **Module 21 — CI/CD + Free Cloud Deploy.** GitHub Actions CI running the
+  36-test suite on every push; deploy to Oracle Always-Free VM or Hugging
+  Face Spaces (free Groq LLM endpoint for the hosted version); status badges.
 - **Module 22 — Capstone.** Architecture diagram, demo GIF, final README
   polish, portfolio write-up.
 
@@ -248,11 +293,10 @@ time — the containers own ports 8000 and 8501.
 - Microsoft revenue extracted as 279,009M vs real 281,724M (~1% off).
   Tesla revenue extracted as 97,690M (~3% off actual). All figures are
   labeled experimental in the UI.
-- Database credentials default to plain values in `database.py` and
-  docker-compose; they will move to a managed `.env` / secrets approach in
-  Module 20.
 - The `/ask` endpoint takes 6–45s because Llama 3 runs on CPU. Module 21
   (Groq free tier on cloud) will address response time for the hosted version.
+- The default API key in the repo is a demo placeholder — set a strong value
+  in `.env` for any real deployment.
 
 ---
 
@@ -284,7 +328,7 @@ financial-doc-intelligence/
 ├── analytics/
 │   └── company_detector.py     # map question text → DB company name
 ├── api/
-│   └── app.py                  # FastAPI: / /stats /ask /metrics /companies /logs
+│   └── app.py                  # FastAPI + API-key auth + rate limiting
 ├── ui/
 │   └── streamlit_app.py        # Streamlit: Ask AI, System Stats, Financials
 ├── evaluation/
@@ -305,6 +349,8 @@ financial-doc-intelligence/
 ├── Dockerfile                  # CPU-only Python app image
 ├── docker-compose.yml          # db + api + ui services
 ├── .dockerignore
+├── .env                        # secrets (git-ignored)
+├── .gitignore
 ├── pytest.ini
 ├── config.py
 ├── requirements.txt
@@ -338,6 +384,18 @@ psql -U $(whoami) -d financial_rag -c "CREATE EXTENSION IF NOT EXISTS vector;"
 ```bash
 # Install from https://ollama.com/download
 ollama pull llama3
+```
+
+**Create your `.env`:**
+```bash
+cat > .env << 'EOF'
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=financial_rag
+DB_USER=your_pg_user
+DB_PASSWORD=
+API_KEY=your-secret-key
+EOF
 ```
 
 ---
@@ -375,14 +433,14 @@ For the Docker workflow, see the **Docker Deployment** section above.
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/` | GET | Health check |
-| `/stats` | GET | Live knowledge-base statistics |
-| `/ask` | POST | Ask a question — body: `{"question": "..."}` |
-| `/metrics` | GET | Extracted financial metrics (`?company=` filter optional) |
-| `/companies` | GET | List of companies with extracted metrics |
-| `/logs` | GET | Last N request log entries (`?n=50` default) |
+| Endpoint | Method | Auth | Description |
+|---|---|---|---|
+| `/` | GET | — | Health check |
+| `/stats` | GET | — | Live knowledge-base statistics |
+| `/ask` | POST | API key + rate limit | Ask a question — body: `{"question": "..."}` |
+| `/metrics` | GET | — | Extracted financial metrics (`?company=` filter optional) |
+| `/companies` | GET | — | List of companies with extracted metrics |
+| `/logs` | GET | — | Last N request log entries (`?n=50` default) |
 
 ---
 
