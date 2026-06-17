@@ -3,6 +3,7 @@
 An AI-powered system that downloads, processes, and answers natural-language
 questions about SEC financial filings using Retrieval-Augmented Generation
 (RAG). It runs entirely on a free, local stack — no paid APIs, no paid cloud.
+Fully containerized with Docker.
 
 ---
 
@@ -13,8 +14,8 @@ them into chunks, embeds them into PostgreSQL + pgvector, retrieves the most
 relevant chunks per question (automatically scoped to the right company), and
 answers using a locally hosted Llama 3 model via Ollama. A FastAPI service and
 Streamlit UI sit on top, with live stats, a financial metrics panel, a fully
-measured RAG evaluation harness, structured JSON request logging, and a
-36-test pytest suite.
+measured RAG evaluation harness, structured JSON request logging, a 36-test
+pytest suite, and a one-command Docker deployment.
 
 ---
 
@@ -29,20 +30,21 @@ measured RAG evaluation harness, structured JSON request logging, and a
 | UI | Streamlit |
 | Logging | Python `logging` + structured JSON |
 | Testing | pytest (36 tests) |
+| Containerization | Docker + docker-compose |
 | Data source | SEC EDGAR (public, free, no API key) |
 
 ---
 
 ## Project Status
 
-The full RAG pipeline works end to end across three companies. 11,818 chunks
-are stored in pgvector, each tagged with company name and fiscal year.
-Questions are automatically routed to the right company's data. Structured
-financial metrics are extracted per company using Llama 3 and stored in a
-queryable table. A measured evaluation harness confirms 93% accuracy across
-15 gold Q&A pairs. Every API request is logged to a structured JSON file, and
-a 36-test pytest suite covers the API, retrieval, logging, and ingestion
-logic.
+The full RAG pipeline works end to end across three companies and runs in
+Docker with a single command. Chunks are stored in pgvector, each tagged with
+company name and fiscal year. Questions are automatically routed to the right
+company's data. Structured financial metrics are extracted per company using
+Llama 3. A measured evaluation harness confirms 93% accuracy across 15 gold
+Q&A pairs. Every API request is logged to a structured JSON file, a 36-test
+pytest suite covers the core logic, and the whole stack (Postgres + API + UI)
+is containerized.
 
 ---
 
@@ -51,12 +53,11 @@ logic.
 All figures extracted by Llama 3 from real SEC 10-K filings (FY2025).
 Labeled experimental in the UI — verify against source filings before use.
 
-| Company | Ticker | Chunks | Revenue (M) | Net Income (M) | EPS (Diluted) |
-|---|---|---|---|---|---|
-| Apple Inc. | AAPL | 3,101 | 400,869 | 112,010 | 7.46 |
-| Microsoft Corporation | MSFT | 3,893 | 279,009 | 101,832 | 13.64 |
-| Tesla, Inc. | TSLA | 4,824 | 97,690 | 3,794 | 1.08 |
-| **Total** | | **11,818** | | | |
+| Company | Ticker | Revenue (M) | Net Income (M) | EPS (Diluted) |
+|---|---|---|---|---|
+| Apple Inc. | AAPL | 400,869 | 112,010 | 7.46 |
+| Microsoft Corporation | MSFT | 279,009 | 101,832 | 13.64 |
+| Tesla, Inc. | TSLA | 97,690 | 3,794 | 1.08 |
 
 ---
 
@@ -97,11 +98,6 @@ View live logs via the API:
 curl "http://127.0.0.1:8000/logs?n=20"
 ```
 
-Or inspect the file directly:
-```bash
-tail -f logs/api.log
-```
-
 ---
 
 ## Testing (Module 18)
@@ -124,6 +120,51 @@ python -m pytest tests/ -v
 | `test_logger.py` | Log writing and reading, error status |
 | `test_chunker.py` | Text chunking output and size limits |
 | `test_search.py` | Vector search, company filtering, isolation |
+
+---
+
+## Docker Deployment (Module 19)
+
+The entire stack runs in three containers with one command:
+
+```bash
+docker compose up -d --build
+```
+
+| Container | Service | Port |
+|---|---|---|
+| `findoc_db` | PostgreSQL 17 + pgvector | 5432 |
+| `findoc_api` | FastAPI | 8000 |
+| `findoc_ui` | Streamlit | 8501 |
+
+The database schema is auto-created from `vectorstore/schema.sql` on first
+startup. The API container reaches Ollama running on the host machine via
+`host.docker.internal:11434`, so the LLM stays on the host (no GPU passthrough
+needed) while everything else is containerized.
+
+**Notes:**
+- The Dockerfile installs CPU-only PyTorch (`--index-url https://download.pytorch.org/whl/cpu`) to avoid pulling ~2GB of unused CUDA GPU libraries.
+- `database.py` reads its connection settings from environment variables
+  (`DB_HOST`, `DB_USER`, etc.), defaulting to local values so the same code
+  works both in Docker and on the host.
+- Ollama must be running on the host (`ollama serve` / Ollama app) before
+  asking questions.
+
+**Load data into the containers:**
+```bash
+docker compose exec api python -m ingestion.sec_downloader AAPL
+docker compose exec api python -m ingestion.ingest_company AAPL
+# repeat for MSFT, TSLA
+docker compose exec api python -m vectorstore.financial_extractor
+```
+
+**Stop everything:**
+```bash
+docker compose down
+```
+
+When using Docker, do not run a local `uvicorn` or `streamlit` at the same
+time — the containers own ports 8000 and 8501.
 
 ---
 
@@ -176,15 +217,18 @@ python -m pytest tests/ -v
 - **Module 18 — Testing Framework.** 36-test pytest suite covering all six
   API endpoints, company detection, logging, chunking, and vector search.
   Runs in ~6 seconds with no LLM calls. `pytest.ini` silences third-party
-  deprecation warnings for clean output. This is the suite GitHub Actions
-  runs on every push (Module 21).
+  deprecation warnings for clean output.
+- **Module 19 — Dockerization.** Three-container docker-compose stack
+  (Postgres + pgvector, FastAPI, Streamlit) starting with one command. Schema
+  auto-loaded on startup. CPU-only PyTorch keeps the image lean. The API
+  reaches host Ollama via `host.docker.internal`. `database.py` reads
+  connection settings from environment variables so the same code runs in
+  Docker and locally.
 
 ### In progress / next
 
-- **Module 19 — Full Dockerization.** docker-compose standing up Postgres +
-  pgvector, API, UI, and Ollama in one command.
 - **Module 20 — Auth & Rate Limiting.** API key authentication and per-client
-  rate limits on the FastAPI layer.
+  rate limits on the FastAPI layer; move credentials fully to `.env`.
 - **Module 21 — CI/CD + Free Cloud Deploy.** GitHub Actions CI on every push;
   deploy to Oracle Always-Free VM or Hugging Face Spaces (free Groq LLM
   endpoint for hosted version).
@@ -204,11 +248,11 @@ python -m pytest tests/ -v
 - Microsoft revenue extracted as 279,009M vs real 281,724M (~1% off).
   Tesla revenue extracted as 97,690M (~3% off actual). All figures are
   labeled experimental in the UI.
-- Database credentials are hardcoded in `vectorstore/database.py` and will be
-  moved to a `.env` file in Module 20.
-- The `/ask` endpoint takes 6–45s because Llama 3 runs on CPU locally.
-  Module 21 (Groq free tier on cloud) will address response time for the
-  hosted version.
+- Database credentials default to plain values in `database.py` and
+  docker-compose; they will move to a managed `.env` / secrets approach in
+  Module 20.
+- The `/ask` endpoint takes 6–45s because Llama 3 runs on CPU. Module 21
+  (Groq free tier on cloud) will address response time for the hosted version.
 
 ---
 
@@ -226,7 +270,7 @@ financial-doc-intelligence/
 │   └── embedding_generator.py  # MiniLM 384-dim local embeddings
 ├── vectorstore/
 │   ├── schema.sql              # document_chunks + financial_metrics tables
-│   ├── database.py             # psycopg2 connection helper
+│   ├── database.py             # psycopg2 connection (env-var driven)
 │   ├── search.py               # vector search with company filter
 │   ├── stats.py                # live corpus statistics
 │   ├── financial_extractor.py  # LLM-based per-company metric extraction
@@ -258,7 +302,9 @@ financial-doc-intelligence/
 │   ├── test_chunker.py         # chunking tests (5)
 │   ├── test_search.py          # search tests (5)
 │   └── __init__.py
-├── docker/                     # upcoming Module 19
+├── Dockerfile                  # CPU-only Python app image
+├── docker-compose.yml          # db + api + ui services
+├── .dockerignore
 ├── pytest.ini
 ├── config.py
 ├── requirements.txt
@@ -267,7 +313,7 @@ financial-doc-intelligence/
 
 ---
 
-## Installation
+## Installation (local, without Docker)
 
 ```bash
 git clone https://github.com/PraveenKumarB-AI/financial-doc-intelligence.git
@@ -296,7 +342,7 @@ ollama pull llama3
 
 ---
 
-## Usage
+## Usage (local)
 
 ```bash
 # 1. Create the database tables
@@ -305,12 +351,7 @@ psql -U $(whoami) -d financial_rag -f vectorstore/schema.sql
 # 2. Download and ingest each company
 python -m ingestion.sec_downloader AAPL
 python -m ingestion.ingest_company AAPL
-
-python -m ingestion.sec_downloader MSFT
-python -m ingestion.ingest_company MSFT
-
-python -m ingestion.sec_downloader TSLA
-python -m ingestion.ingest_company TSLA
+# repeat for MSFT, TSLA
 
 # 3. Extract financial metrics for all companies
 python -m vectorstore.financial_extractor
@@ -326,10 +367,9 @@ uvicorn api.app:app --reload
 
 # 7. Start the UI (terminal 2)
 streamlit run ui/streamlit_app.py
-
-# 8. Monitor live logs
-curl "http://127.0.0.1:8000/logs?n=20"
 ```
+
+For the Docker workflow, see the **Docker Deployment** section above.
 
 ---
 
