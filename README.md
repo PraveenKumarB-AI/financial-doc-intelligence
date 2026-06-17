@@ -12,8 +12,9 @@ The system ingests 10-K filings for multiple companies from SEC EDGAR, splits
 them into chunks, embeds them into PostgreSQL + pgvector, retrieves the most
 relevant chunks per question (automatically scoped to the right company), and
 answers using a locally hosted Llama 3 model via Ollama. A FastAPI service and
-Streamlit UI sit on top, with live stats, a financial metrics panel with a
-company-filter dropdown, and a fully measured RAG evaluation harness.
+Streamlit UI sit on top, with live stats, a financial metrics panel, a fully
+measured RAG evaluation harness, and structured JSON request logging on every
+API call.
 
 ---
 
@@ -26,6 +27,7 @@ company-filter dropdown, and a fully measured RAG evaluation harness.
 | LLM | Llama 3 via Ollama (local, offline) |
 | API | FastAPI + Uvicorn |
 | UI | Streamlit |
+| Logging | Python `logging` + structured JSON |
 | Data source | SEC EDGAR (public, free, no API key) |
 
 ---
@@ -37,7 +39,8 @@ are stored in pgvector, each tagged with company name and fiscal year.
 Questions are automatically routed to the right company's data. Structured
 financial metrics are extracted per company using Llama 3 and stored in a
 queryable table. A measured evaluation harness confirms 93% accuracy across
-15 gold Q&A pairs.
+15 gold Q&A pairs. Every API request is logged to a structured JSON file with
+timestamp, endpoint, latency, detected company, and answer snippet.
 
 ---
 
@@ -72,6 +75,30 @@ Run anytime with: `python -m evaluation.run_eval`
 | Business category | 4/4 (100%) |
 
 *Evaluated June 16, 2026. LLM judge: local Llama 3 via Ollama.*
+
+---
+
+## Logging & Monitoring (Module 17)
+
+Every API request writes a structured JSON line to `logs/api.log`:
+
+```json
+{"ts":"2026-06-16T23:23:25+00:00","endpoint":"/ask","status":"ok","latency_s":8.341,"question":"Who is the CEO of Microsoft?","company":"Microsoft Corporation","answer":"Satya Nadella..."}
+```
+
+Fields logged per request: timestamp (UTC), endpoint, status (ok/error),
+latency in seconds, question text, detected company, answer snippet, and
+error message on failure.
+
+View live logs via the API:
+```bash
+curl "http://127.0.0.1:8000/logs?n=20"
+```
+
+Or inspect the file directly:
+```bash
+tail -f logs/api.log
+```
 
 ---
 
@@ -115,11 +142,15 @@ Run anytime with: `python -m evaluation.run_eval`
   Local Llama 3 acts as judge. Produces accuracy, per-company, per-category
   breakdown, and latency metrics. Results saved as timestamped JSON.
   **Result: 93% accuracy, 7.3s avg latency.**
+- **Module 17 — Logging & Monitoring.** Structured JSON logger writes one
+  line per API request to `logs/api.log` covering timestamp, endpoint,
+  latency, detected company, answer snippet, and ok/error status. The
+  `/logs?n=N` endpoint returns the last N entries as JSON for live
+  monitoring. Error handling in `/ask` catches exceptions and logs them with
+  status `"error"` instead of crashing silently.
 
 ### In progress / next
 
-- **Module 17 — Logging & Monitoring.** Structured request/answer logging
-  with timing and error tracking across the pipeline.
 - **Module 18 — Testing Framework.** pytest suite covering ingestion,
   retrieval, and API endpoints.
 - **Module 19 — Full Dockerization.** docker-compose standing up Postgres +
@@ -143,13 +174,13 @@ Run anytime with: `python -m evaluation.run_eval`
   appears in the certifications section which may not be retrieved by the
   income-statement-focused retrieval query. The one miss in the eval harness.
 - Microsoft revenue extracted as 279,009M vs real 281,724M (~1% off).
-  Tesla revenue 94,827M vs real 97,690M (~3% off). All figures are labeled
-  experimental in the UI.
+  Tesla revenue extracted as 97,690M (~3% off actual). All figures are
+  labeled experimental in the UI.
 - Database credentials are hardcoded in `vectorstore/database.py` and will be
   moved to a `.env` file in Module 20.
 - The `/ask` endpoint takes 6–45s because Llama 3 runs on CPU locally.
-  Module 12 (streaming) and Module 21 (Groq free tier on cloud) will address
-  response time for the hosted version.
+  Module 21 (Groq free tier on cloud) will address response time for the
+  hosted version.
 
 ---
 
@@ -181,13 +212,17 @@ financial-doc-intelligence/
 ├── analytics/
 │   └── company_detector.py     # map question text → DB company name
 ├── api/
-│   └── app.py                  # FastAPI: / /stats /ask /metrics /companies
+│   └── app.py                  # FastAPI: / /stats /ask /metrics /companies /logs
 ├── ui/
 │   └── streamlit_app.py        # Streamlit: Ask AI, System Stats, Financials
 ├── evaluation/
 │   ├── test_questions.json     # 15 gold Q&A pairs (3 companies × 5 Qs)
 │   ├── run_eval.py             # evaluation harness + Llama 3 judge
 │   └── results/                # timestamped JSON eval outputs
+├── logs/
+│   ├── logger.py               # structured JSON request logger
+│   ├── __init__.py
+│   └── api.log                 # live request log (auto-created)
 ├── docker/                     # upcoming Module 19
 ├── config.py
 ├── requirements.txt
@@ -231,7 +266,7 @@ ollama pull llama3
 # 1. Create the database tables
 psql -U $(whoami) -d financial_rag -f vectorstore/schema.sql
 
-# 2. Download and ingest each company (repeat for MSFT, TSLA, etc.)
+# 2. Download and ingest each company
 python -m ingestion.sec_downloader AAPL
 python -m ingestion.ingest_company AAPL
 
@@ -252,6 +287,9 @@ uvicorn api.app:app --reload
 
 # 6. Start the UI (terminal 2)
 streamlit run ui/streamlit_app.py
+
+# 7. Monitor live logs
+curl "http://127.0.0.1:8000/logs?n=20"
 ```
 
 ---
@@ -265,6 +303,7 @@ streamlit run ui/streamlit_app.py
 | `/ask` | POST | Ask a question — body: `{"question": "..."}` |
 | `/metrics` | GET | Extracted financial metrics (`?company=` filter optional) |
 | `/companies` | GET | List of companies with extracted metrics |
+| `/logs` | GET | Last N request log entries (`?n=50` default) |
 
 ---
 
