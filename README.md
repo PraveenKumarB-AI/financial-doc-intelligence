@@ -13,8 +13,8 @@ them into chunks, embeds them into PostgreSQL + pgvector, retrieves the most
 relevant chunks per question (automatically scoped to the right company), and
 answers using a locally hosted Llama 3 model via Ollama. A FastAPI service and
 Streamlit UI sit on top, with live stats, a financial metrics panel, a fully
-measured RAG evaluation harness, and structured JSON request logging on every
-API call.
+measured RAG evaluation harness, structured JSON request logging, and a
+36-test pytest suite.
 
 ---
 
@@ -28,6 +28,7 @@ API call.
 | API | FastAPI + Uvicorn |
 | UI | Streamlit |
 | Logging | Python `logging` + structured JSON |
+| Testing | pytest (36 tests) |
 | Data source | SEC EDGAR (public, free, no API key) |
 
 ---
@@ -39,8 +40,9 @@ are stored in pgvector, each tagged with company name and fiscal year.
 Questions are automatically routed to the right company's data. Structured
 financial metrics are extracted per company using Llama 3 and stored in a
 queryable table. A measured evaluation harness confirms 93% accuracy across
-15 gold Q&A pairs. Every API request is logged to a structured JSON file with
-timestamp, endpoint, latency, detected company, and answer snippet.
+15 gold Q&A pairs. Every API request is logged to a structured JSON file, and
+a 36-test pytest suite covers the API, retrieval, logging, and ingestion
+logic.
 
 ---
 
@@ -102,6 +104,29 @@ tail -f logs/api.log
 
 ---
 
+## Testing (Module 18)
+
+A 36-test pytest suite runs in ~6 seconds with no LLM calls (deliberately
+fast — answer quality is measured separately in the evaluation harness).
+
+```bash
+python -m pytest tests/ -v
+```
+
+```
+36 passed in 6.22s
+```
+
+| Test file | Coverage |
+|---|---|
+| `test_api.py` | All 6 endpoints — status codes, response shapes, company filter |
+| `test_company_detector.py` | Company detection from question text |
+| `test_logger.py` | Log writing and reading, error status |
+| `test_chunker.py` | Text chunking output and size limits |
+| `test_search.py` | Vector search, company filtering, isolation |
+
+---
+
 ## Roadmap & Progress
 
 ### Done
@@ -148,11 +173,14 @@ tail -f logs/api.log
   `/logs?n=N` endpoint returns the last N entries as JSON for live
   monitoring. Error handling in `/ask` catches exceptions and logs them with
   status `"error"` instead of crashing silently.
+- **Module 18 — Testing Framework.** 36-test pytest suite covering all six
+  API endpoints, company detection, logging, chunking, and vector search.
+  Runs in ~6 seconds with no LLM calls. `pytest.ini` silences third-party
+  deprecation warnings for clean output. This is the suite GitHub Actions
+  runs on every push (Module 21).
 
 ### In progress / next
 
-- **Module 18 — Testing Framework.** pytest suite covering ingestion,
-  retrieval, and API endpoints.
 - **Module 19 — Full Dockerization.** docker-compose standing up Postgres +
   pgvector, API, UI, and Ollama in one command.
 - **Module 20 — Auth & Rate Limiting.** API key authentication and per-client
@@ -223,7 +251,15 @@ financial-doc-intelligence/
 │   ├── logger.py               # structured JSON request logger
 │   ├── __init__.py
 │   └── api.log                 # live request log (auto-created)
+├── tests/
+│   ├── test_api.py             # endpoint tests (15)
+│   ├── test_company_detector.py# detection tests (6)
+│   ├── test_logger.py          # logging tests (5)
+│   ├── test_chunker.py         # chunking tests (5)
+│   ├── test_search.py          # search tests (5)
+│   └── __init__.py
 ├── docker/                     # upcoming Module 19
+├── pytest.ini
 ├── config.py
 ├── requirements.txt
 └── README.md
@@ -282,13 +318,16 @@ python -m vectorstore.financial_extractor
 # 4. Run the evaluation harness
 python -m evaluation.run_eval
 
-# 5. Start the API (terminal 1)
+# 5. Run the test suite
+python -m pytest tests/ -v
+
+# 6. Start the API (terminal 1)
 uvicorn api.app:app --reload
 
-# 6. Start the UI (terminal 2)
+# 7. Start the UI (terminal 2)
 streamlit run ui/streamlit_app.py
 
-# 7. Monitor live logs
+# 8. Monitor live logs
 curl "http://127.0.0.1:8000/logs?n=20"
 ```
 
