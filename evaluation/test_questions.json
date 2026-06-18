@@ -1,107 +1,18 @@
 [
-  {
-    "id": "aapl_01",
-    "company": "Apple Inc.",
-    "question": "Who is the CEO of Apple?",
-    "expected": "Timothy D. Cook",
-    "category": "leadership"
-  },
-  {
-    "id": "aapl_02",
-    "company": "Apple Inc.",
-    "question": "Who is the CFO of Apple?",
-    "expected": "Kevan Parekh",
-    "category": "leadership"
-  },
-  {
-    "id": "aapl_03",
-    "company": "Apple Inc.",
-    "question": "What is Apple's total revenue for fiscal year 2025?",
-    "expected": "400869",
-    "category": "financials"
-  },
-  {
-    "id": "aapl_04",
-    "company": "Apple Inc.",
-    "question": "What is Apple's net income for fiscal year 2025?",
-    "expected": "112010",
-    "category": "financials"
-  },
-  {
-    "id": "aapl_05",
-    "company": "Apple Inc.",
-    "question": "What are Apple's main products?",
-    "expected": "iPhone Mac iPad Wearables Services",
-    "category": "business"
-  },
-  {
-    "id": "msft_01",
-    "company": "Microsoft Corporation",
-    "question": "Who is the CEO of Microsoft?",
-    "expected": "Satya Nadella",
-    "category": "leadership"
-  },
-  {
-    "id": "msft_02",
-    "company": "Microsoft Corporation",
-    "question": "Who is the CFO of Microsoft?",
-    "expected": "Amy Hood",
-    "category": "leadership"
-  },
-  {
-    "id": "msft_03",
-    "company": "Microsoft Corporation",
-    "question": "What is Microsoft's total revenue for fiscal year 2025?",
-    "expected": "279009",
-    "category": "financials"
-  },
-  {
-    "id": "msft_04",
-    "company": "Microsoft Corporation",
-    "question": "What is Microsoft's net income for fiscal year 2025?",
-    "expected": "101832",
-    "category": "financials"
-  },
-  {
-    "id": "msft_05",
-    "company": "Microsoft Corporation",
-    "question": "What is Microsoft's main cloud product?",
-    "expected": "Azure",
-    "category": "business"
-  },
-  {
-    "id": "tsla_01",
-    "company": "Tesla, Inc.",
-    "question": "Who is the CEO of Tesla?",
-    "expected": "Elon Musk",
-    "category": "leadership"
-  },
-  {
-    "id": "tsla_02",
-    "company": "Tesla, Inc.",
-    "question": "Who is the CFO of Tesla?",
-    "expected": "Vaibhav Taneja",
-    "category": "leadership"
-  },
-  {
-    "id": "tsla_03",
-    "company": "Tesla, Inc.",
-    "question": "What is Tesla's total revenue for fiscal year 2025?",
-    "expected": "97690",
-    "category": "financials"
-  },
-  {
-    "id": "tsla_04",
-    "company": "Tesla, Inc.",
-    "question": "What does Tesla manufacture?",
-    "expected": "electric vehicles energy storage solar",
-    "category": "business"
-  },
-  {
-    "id": "tsla_05",
-    "company": "Tesla, Inc.",
-    "question": "What is Tesla's main vehicle model?",
-    "expected": "Model 3 Model Y Model S Model X",
-    "category": "business"
-  }
+    {
+        "question": "Who is the CEO?",
+        "expected": "Timothy D. Cook"
+    },
+    {
+        "question": "Who is the CFO?",
+        "expected": "Luca Maestri"
+    },
+    {
+        "question": "What company is this filing about?",
+        "expected": "Apple Inc."
+    },
+    {
+        "question": "What is the company address?",
+        "expected": "One Apple Park Way"
+    }
 ]

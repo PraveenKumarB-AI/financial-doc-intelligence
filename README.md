@@ -1,4 +1,6 @@
 # Financial Document Intelligence Assistant
+![CI](https://github.com/PraveenKumarB-AI/financial-doc-intelligence/actions/workflows/ci.yml/badge.svg)
+
 
 An AI-powered system that downloads, processes, and answers natural-language
 questions about SEC financial filings using Retrieval-Augmented Generation
