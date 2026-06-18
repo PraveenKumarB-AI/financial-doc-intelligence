@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: financial_rag
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      CI: "true"
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: financial_rag
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      API_KEY: ci-test-key
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install CPU-only PyTorch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install pytest tooling
+        run: pip install pytest pytest-asyncio httpx slowapi
+
+      - name: Create database schema
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d financial_rag -f vectorstore/schema.sql
+        env:
+          PGPASSWORD: postgres
+
+      - name: Run tests
+        run: python -m pytest tests/ -v
