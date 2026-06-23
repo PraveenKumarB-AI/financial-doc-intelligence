@@ -17,7 +17,22 @@ import pandas as pd
 from streamlit_option_menu import option_menu
 from dotenv import load_dotenv
 load_dotenv()
-
+# ---- TEMPORARY DEBUG ----
+import streamlit as st_debug
+try:
+    from vectorstore.database import get_connection as _gc
+    _conn = _gc()
+    _cur = _conn.cursor()
+    _cur.execute("SELECT current_database(), current_user;")
+    _db, _user = _cur.fetchone()
+    _cur.execute("SELECT tablename FROM pg_tables WHERE schemaname='public';")
+    _tables = [r[0] for r in _cur.fetchall()]
+    _cur.close()
+    _conn.close()
+    st_debug.warning(f"DEBUG — database: {_db} | user: {_user} | tables: {_tables}")
+except Exception as _e:
+    st_debug.error(f"DEBUG — connection failed: {_e}")
+# ---- END DEBUG ----
 from vectorstore.stats import get_stats
 from vectorstore.database import get_connection
 from rag.retriever import retrieve_context
