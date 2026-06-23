@@ -1,6 +1,5 @@
-[theme]
-base="dark"
-primaryColor="#00FF99"
-backgroundColor="#020617"
-secondaryBackgroundColor="#0F172A"
-textColor="#FFFFFF"
+[server]
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false

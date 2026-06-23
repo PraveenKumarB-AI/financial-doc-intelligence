@@ -1,10 +1,17 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import streamlit as st
-import requests
 import pandas as pd
 from streamlit_option_menu import option_menu
-import os
 from dotenv import load_dotenv
 load_dotenv()
+
+from vectorstore.stats import get_stats
+from vectorstore.database import get_connection
+from rag.retriever import retrieve_context
+from rag.chain import ask_question
 
 st.set_page_config(
     page_title="Financial AI Platform",
@@ -17,24 +24,87 @@ if "history" not in st.session_state:
 
 st.markdown("""
 <style>
-.stApp{
+.stApp {
     background: linear-gradient(135deg, #020617, #0f172a, #1e293b);
 }
-.hero { text-align:center; padding:30px; }
-.hero h1{ color:white; font-size:4rem; }
-.hero p{ color:#94a3b8; font-size:1.2rem; }
-.glass{
-    background:rgba(255,255,255,0.05);
-    backdrop-filter:blur(15px);
-    border-radius:20px;
-    padding:20px;
-    border:1px solid rgba(255,255,255,0.1);
+/* All text light by default */
+.stApp, .stApp p, .stApp span, .stApp label, .stApp div, .stMarkdown {
+    color: #e2e8f0 !important;
 }
-.answer{
-    background:rgba(0,255,150,0.08);
-    padding:20px;
+/* Hero title */
+.hero { text-align:center; padding:30px; }
+.hero h1 { color:#ffffff !important; font-size:3.5rem; margin:0; }
+.hero p { color:#00d4aa !important; font-size:1.2rem; margin-top:10px; }
+
+/* Metric tiles */
+[data-testid="stMetricLabel"] {
+    color:#94a3b8 !important;
+    font-size:0.9rem !important;
+}
+[data-testid="stMetricValue"] {
+    color:#00d4aa !important;
+    font-weight:600 !important;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background:#060d1a !important;
+}
+section[data-testid="stSidebar"] * {
+    color:#cbd5e1 !important;
+}
+
+/* Text input */
+.stTextInput input {
+    background-color:#0d1f3c !important;
+    color:#e2e8f0 !important;
+    border:1px solid #1e3a5f !important;
+}
+
+/* Analyze button — green */
+.stButton > button {
+    background:linear-gradient(135deg, #00d4aa, #00b894) !important;
+    color:#020617 !important;
+    font-weight:600 !important;
+    border:none !important;
+    padding:8px 30px !important;
+    border-radius:8px !important;
+}
+.stButton > button:hover {
+    background:linear-gradient(135deg, #00e6bb, #00d4aa) !important;
+    box-shadow:0 4px 15px rgba(0,212,170,0.4) !important;
+}
+
+/* Answer card — green accent */
+.answer {
+    background:rgba(0,212,170,0.08);
+    padding:24px;
     border-radius:15px;
-    border:1px solid rgba(0,255,150,0.2);
+    border:1px solid rgba(0,212,170,0.3);
+    border-left:4px solid #00d4aa;
+    margin-top:20px;
+}
+.answer h3 { color:#00d4aa !important; margin-top:0; }
+.answer p { color:#e2e8f0 !important; font-size:1.05rem; line-height:1.6; }
+
+/* Code block (architecture) */
+.stCode, pre, code {
+    background:#0d1f3c !important;
+    color:#00d4aa !important;
+}
+
+/* Success message — green */
+[data-testid="stAlert"] {
+    background:rgba(0,212,170,0.1) !important;
+    color:#e2e8f0 !important;
+}
+
+/* Dataframe */
+.stDataFrame { color:#e2e8f0 !important; }
+
+/* Subheaders */
+h1, h2, h3, .stSubheader {
+    color:#f1f5f9 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -42,15 +112,45 @@ st.markdown("""
 
 def render_stats():
     try:
-        stats = requests.get("http://127.0.0.1:8000/stats", timeout=5).json()
-    except Exception:
-        st.warning("Stats unavailable — make sure the API is running on port 8000.")
+        stats = get_stats()
+    except Exception as e:
+        st.warning(f"Stats unavailable: {e}")
         return
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Companies", stats.get("total_companies", 0))
     c2.metric("Filings",   stats.get("total_filings", 0))
     c3.metric("Chunks",    f"{stats.get('total_chunks', 0):,}")
     c4.metric("Last updated", str(stats.get("last_updated", "—"))[:16])
+
+
+def get_companies():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT DISTINCT company FROM financial_metrics ORDER BY company;")
+    rows = [r[0] for r in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return rows
+
+
+def get_metrics(company=None):
+    conn = get_connection()
+    cur = conn.cursor()
+    if company and company != "All":
+        cur.execute(
+            "SELECT company, fiscal_year, metric_name, metric_value "
+            "FROM financial_metrics WHERE company = %s ORDER BY metric_name",
+            (company,),
+        )
+    else:
+        cur.execute(
+            "SELECT company, fiscal_year, metric_name, metric_value "
+            "FROM financial_metrics ORDER BY company, metric_name"
+        )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
 
 
 with st.sidebar:
@@ -72,7 +172,12 @@ selected = option_menu(
     menu_title=None,
     options=["Ask AI", "System Stats", "Financials"],
     icons=["robot", "bar-chart", "cash-stack"],
-    orientation="horizontal"
+    orientation="horizontal",
+    styles={
+        "container": {"background-color": "#0d1f3c", "border-radius": "10px"},
+        "nav-link": {"color": "#94a3b8", "font-size": "15px"},
+        "nav-link-selected": {"background-color": "#00d4aa", "color": "#020617"},
+    }
 )
 
 if selected == "Ask AI":
@@ -86,16 +191,10 @@ if selected == "Ask AI":
             st.session_state.history.append(question)
             with st.spinner("Analyzing financial documents..."):
                 try:
-                    response = requests.post(
-                        "http://127.0.0.1:8000/ask",
-                        json={"question": question},
-                        headers={"X-API-Key": os.getenv("API_KEY", "findoc-demo-key-2026")},
-                        timeout=120
-)
-                    
-                    answer = response.json()["answer"]
+                    retrieve_context(question)
+                    answer = ask_question(question)
                 except Exception as e:
-                    answer = f"API error: {e}"
+                    answer = f"Error: {e}"
                 st.markdown(
                     f"""
                     <div class="answer">
@@ -123,7 +222,7 @@ pgvector
      ↓
 Retriever
      ↓
-Llama 3
+Llama 3 / Groq
      ↓
 Answer
 """)
@@ -133,30 +232,15 @@ if selected == "Financials":
     st.subheader("Extracted Financial Metrics")
     st.caption("AI-extracted from FY2025 10-K filings — experimental, verify before use.")
     try:
-        company_resp = requests.get(
-            "http://127.0.0.1:8000/companies", timeout=5
-        ).json()
-        company_list = ["All"] + company_resp.get("companies", [])
+        company_list = ["All"] + get_companies()
         selected_company = st.selectbox("Select company", company_list)
-
-        params = {}
-        if selected_company != "All":
-            params["company"] = selected_company
-
-        data = requests.get(
-            "http://127.0.0.1:8000/metrics",
-            params=params,
-            timeout=5
-        ).json()
-        rows = data.get("metrics", [])
+        rows = get_metrics(selected_company)
 
         if rows:
-            df = pd.DataFrame(rows)
-            df.columns = ["Company", "Fiscal Year", "Metric", "Value"]
+            df = pd.DataFrame(rows, columns=["Company", "Fiscal Year", "Metric", "Value"])
             df["Metric"] = df["Metric"].str.replace("_", " ").str.title()
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.dataframe(df, width='stretch', hide_index=True)
         else:
-            st.info("No metrics found. Run: python -m vectorstore.financial_extractor")
-
+            st.info("No metrics found.")
     except Exception as e:
-        st.warning(f"Metrics unavailable: {e} — is the API running on port 8000?")
+        st.warning(f"Metrics unavailable: {e}")
