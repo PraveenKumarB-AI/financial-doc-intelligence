@@ -3,12 +3,25 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
+
+# On Streamlit Cloud, secrets live in st.secrets. Push them into environment
+# variables so database.py and llm_client.py (which read os.getenv) can see them.
+for _key in ("DATABASE_URL", "GROQ_API_KEY", "API_KEY"):
+    try:
+        if _key in st.secrets:
+            os.environ[_key] = str(st.secrets[_key])
+    except Exception:
+        pass
+
 import pandas as pd
 from streamlit_option_menu import option_menu
 from dotenv import load_dotenv
 load_dotenv()
 
 from vectorstore.stats import get_stats
+from vectorstore.database import get_connection
+from rag.retriever import retrieve_context
+from rag.chain import ask_question
 from vectorstore.database import get_connection
 from rag.retriever import retrieve_context
 from rag.chain import ask_question
