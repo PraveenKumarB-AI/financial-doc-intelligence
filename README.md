@@ -1,83 +1,105 @@
 # Financial Document Intelligence Assistant
 
-![CI](https://github.com/PraveenKumarB-AI/financial-doc-intelligence/actions/workflows/ci.yml/badge.svg)
+**Live demo:** https://financial-doc-intelligence-gbnxwwhxj7d3fyqw4if6pn.streamlit.app
 
-*Live demo:https://financial-doc-intelligence-gbnxwwhxj7d3fyqw4if6pn.streamlit.app
+An AI assistant that reads SEC 10-K filings and answers plain-English questions about them. Ask it who runs a company, what its revenue was, or what risks it flagged, and it pulls the answer straight from the actual filing text instead of making something up.
 
-An AI assistant that reads SEC 10-K filings and answers plain-English questions about them. Ask it who runs a company, what its revenue was, or what risks it flagged, and it pulls the answer straight from the actual filing text using retrieval-augmented generation.
+It currently covers Apple, Microsoft, and Tesla for fiscal year 2025. Behind the scenes that's nearly 12,000 chunks of filing text, indexed so the assistant can find the right passage in a fraction of a second and answer from it.
 
-It runs two ways. Locally, everything is free and offline: a local Llama 3 model through Ollama, and PostgreSQL with pgvector for the search. The live version swaps in two free hosted services so it can run on the cloud without a beefy server: Groq for the language model and Neon for the database.
+## Why this exists
 
-## What it does
+Annual reports are long, dense, and full of legal boilerplate. Finding one specific fact, like who the CFO is or what a company listed as its biggest risk, means scrolling through hundreds of pages. This tool does that searching for you and answers in seconds, and it always answers from the real document rather than from general knowledge, so you can trust that the response actually came from the filing.
 
-You ask a question in the chat. The system finds the most relevant passages from the right company's filing, hands them to the language model along with your question, and gives you an answer grounded in the source text. It currently covers Apple, Microsoft, and Tesla for fiscal year 2025, which works out to 11,818 indexed chunks of filing text.
+## What it can do
 
-There are three tabs: Ask AI for questions, System Stats for a live look at what's loaded, and Financials for the revenue and earnings figures pulled out of each filing.
+Ask it questions in plain English and it answers from the filings. It automatically figures out which company you're asking about and only searches that company's documents. It also pulls key financial figures, revenue, net income, and earnings per share, out of each filing and shows them in a table. And it gives you a live view of exactly what's loaded into the system at any moment.
+
+There are three tabs in the app: one for asking questions, one for system stats, and one for the financial figures.
 
 ## How it works
 
-When a filing comes in, it gets split into overlapping chunks of about a thousand tokens each. Every chunk is turned into a 384-dimension vector using the MiniLM sentence-transformer model and stored in pgvector, tagged with the company name and fiscal year. When you ask something, your question gets the same vector treatment, and a cosine-similarity search finds the closest passages, scoped to whichever company you asked about. Those passages and your question go to the language model, which writes the answer.
+Think of it in two stages.
 
-## Tech stack
+First, the setup. Each filing gets broken into small overlapping passages. Every passage is converted into a list of numbers, a "vector", that captures its meaning, and those vectors are stored in a special database built for fast similarity search. Each passage is also tagged with the company it came from and the fiscal year.
+
+Then, when you ask a question, the same thing happens to your question, it becomes a vector. The system compares your question's vector against all the stored passages and pulls out the handful that are closest in meaning, narrowed down to the company you asked about. Those passages, plus your question, go to a language model, which reads them and writes a clear answer. This approach, finding relevant source text first and then answering from it, is called retrieval-augmented generation, or RAG. It's what keeps the answers grounded in the actual document.
+
+## Two ways to run it
+
+The project runs locally and in the cloud, and it's built to do both from the same code.
+
+Run it locally and everything stays on your own machine and works offline: the language model runs through a tool called Ollama, and the database is PostgreSQL. Nothing is sent anywhere, and there are no costs.
+
+The live version runs on the internet so anyone can use it. It swaps in two free hosted services, Groq for the language model and Neon for the database, because free web hosting doesn't have enough memory to run the local model, which needs several gigabytes just to load. The code detects which setup it's in and picks the right one automatically, so you never have to change anything by hand.
+
+## What it's built with
 
 Everything here is free or open-source.
 
-| Layer | Local | Cloud |
+| Part | Local | Live (cloud) |
 |---|---|---|
-| Language model | Llama 3 via Ollama | Llama 3.3 70B via Groq |
-| Database | PostgreSQL 17 + pgvector | Neon (Postgres + pgvector) |
-| Embeddings | sentence-transformers MiniLM (384-dim) | same |
-| Backend | FastAPI | (UI calls RAG directly) |
+| Language model | Llama 3 (via Ollama) | Llama 3.3 70B (via Groq) |
+| Database | PostgreSQL + pgvector | Neon (Postgres + pgvector) |
+| Meaning vectors | MiniLM sentence-transformer | same |
+| Backend API | FastAPI | (the app calls the logic directly) |
 | Interface | Streamlit | Streamlit Community Cloud |
-| Data source | SEC EDGAR | same |
+| Filings source | SEC EDGAR (public, free) | same |
 
-The local setup keeps everything on your machine and offline. The cloud version uses Groq and Neon because no free hosting tier has enough memory to run Ollama, which needs several gigabytes just to hold the model. The code picks the right backend automatically based on which environment variables are set, so the same codebase runs in both places.
+## The companies and their numbers
 
-## Companies and figures
+These figures were pulled out of the real FY2025 filings by the language model. They're marked experimental in the app because the extraction isn't flawless, so check them against the source filing before relying on them for anything serious.
 
-These numbers were pulled out of the real FY2025 10-K filings by the language model. They're labeled experimental in the app because the extraction isn't perfect, so verify against the source before relying on them.
-
-| Company | Ticker | Revenue (M) | Net income (M) | Diluted EPS |
+| Company | Ticker | Revenue (millions) | Net income (millions) | Earnings per share |
 |---|---|---|---|---|
 | Apple | AAPL | 400,869 | 112,010 | 7.46 |
 | Microsoft | MSFT | 279,009 | 101,832 | 13.64 |
 | Tesla | TSLA | 97,690 | 3,794 | 1.08 |
 
-## How accurate is it
+## How well does it answer
 
-There's an evaluation harness that runs 15 hand-checked question-answer pairs across the three companies, covering leadership, financials, and business questions. A local Llama 3 model acts as the judge. The latest run scored 14 out of 15, with answers coming back in about 7.3 seconds each on local hardware.
+The project includes a built-in test that asks 15 questions whose correct answers were checked by hand, spread across the three companies and covering leadership, financials, and business topics. On the latest run it got 14 of the 15 right, taking about seven seconds per question on a normal laptop. The single miss was Tesla's CFO, whose name appears in a part of the filing the search didn't reach for that kind of question.
 
-You can run it yourself:
+You can run this check yourself with one command:
 
 ```bash
 python -m evaluation.run_eval
 ```
 
-The one miss was Tesla's CFO, whose name sits in a certifications section that the retrieval step didn't surface for an income-statement-style query.
+## What's been built in
 
-## Security
+The system is more than just question-answering. It includes:
 
-The `/ask` endpoint on the API requires an API key sent as an `X-API-Key` header, and it's rate-limited to 20 requests per minute per IP using slowapi. The read-only endpoints stay open so the data is easy to browse in a demo. All credentials, the database URL, the API key, and the Groq key, live in a `.env` file that's kept out of version control, loaded with python-dotenv.
+- Multi-company support, with answers automatically scoped to the right company
+- Source-grounded answers that come from the filing text, not invented
+- Automatic extraction of financial figures into a table
+- A live stats view of what's loaded
+- An accuracy test you can run anytime
+- Structured logging of every request
+- A 36-test automated test suite
+- One-command Docker setup
+- API key protection and rate limiting on the expensive endpoint
+- Continuous integration that runs the tests on every code change
+- A live public deployment
+
+## Keeping it secure
+
+The question-answering endpoint requires an API key and is limited to 20 requests a minute per user, so no single person can overload it. The browsing endpoints stay open so the data is easy to look at. All the secret values, database passwords and API keys, live in a local file that's deliberately kept out of the public code.
 
 ## Logging
 
-Every API request writes a structured JSON line to `logs/api.log` with a timestamp, the endpoint, how long it took, the detected company, a snippet of the answer, and whether it succeeded or errored. You can pull the recent entries through the API:
-
-```bash
-curl "http://127.0.0.1:8000/logs?n=20"
-```
+Every request the system handles is written to a log file as a structured record: when it happened, what was asked, which company it was about, how long it took, and whether it worked. You can pull up the recent activity through the API.
 
 ## Testing
 
-There's a 36-test pytest suite covering the API endpoints, company detection, logging, chunking, and vector search. It runs in about six seconds and doesn't call the language model, since answer quality is measured separately by the evaluation harness.
+There's an automated test suite of 36 tests covering the API, company detection, logging, text chunking, and search. It runs in about six seconds. On top of that, GitHub automatically runs these tests every time the code changes, which is what the green badge at the top of this page shows. Answer quality is measured separately by the accuracy check described earlier.
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-GitHub Actions runs this suite on every push to main, spinning up a Postgres container with pgvector. The data-dependent tests skip in CI since the CI database starts empty. The passing badge at the top of this file reflects the latest run.
+## Running it on your own machine
 
-## Running it locally
+Clone the project and set up the environment:
 
 ```bash
 git clone https://github.com/PraveenKumarB-AI/financial-doc-intelligence.git
@@ -87,7 +109,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-You'll need PostgreSQL 17 with pgvector and Ollama with Llama 3:
+You'll need PostgreSQL with the pgvector extension, and Ollama with the Llama 3 model:
 
 ```bash
 brew install postgresql@17
@@ -95,25 +117,25 @@ brew services start postgresql@17
 psql -U $(whoami) -d postgres -c "CREATE DATABASE financial_rag;"
 psql -U $(whoami) -d financial_rag -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
-# Ollama from https://ollama.com/download
+# Install Ollama from https://ollama.com/download, then:
 ollama pull llama3
 ```
 
-Create a `.env` file:
+Create a file named `.env` with your settings:
 
 ```
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=financial_rag
-DB_USER=your_pg_user
+DB_USER=your_postgres_user
 DB_PASSWORD=
 API_KEY=your-secret-key
 ```
 
-Then set up the data and start it:
+Set up the data and start the app:
 
 ```bash
-# Create the tables
+# Create the database tables
 psql -U $(whoami) -d financial_rag -f vectorstore/schema.sql
 
 # Download and load each company
@@ -121,27 +143,29 @@ python -m ingestion.sec_downloader AAPL
 python -m ingestion.ingest_company AAPL
 # repeat for MSFT and TSLA
 
-# Pull out the financial metrics
+# Pull out the financial figures
 python -m vectorstore.financial_extractor
 
-# Start the API (one terminal)
+# Start the backend (in one terminal)
 uvicorn api.app:app --reload
 
-# Start the UI (another terminal)
+# Start the interface (in another terminal)
 streamlit run ui/streamlit_app.py
 ```
 
+Then open the address Streamlit prints, usually http://localhost:8501.
+
 ## Running it with Docker
 
-The whole stack comes up with one command:
+If you'd rather not install everything by hand, the whole thing comes up with one command:
 
 ```bash
 docker compose up -d --build
 ```
 
-That starts three containers: Postgres with pgvector on 5432, the FastAPI service on 8000, and the Streamlit UI on 8501. The schema loads automatically on first start. The API container reaches Ollama on the host machine through `host.docker.internal`, so the model stays on the host and everything else is containerized.
+That starts three pieces together: the database, the backend, and the interface. The database tables are created automatically the first time. The language model still runs on your host machine, and the containers reach out to it.
 
-Load the data into the containers:
+Load the data in:
 
 ```bash
 docker compose exec api python -m ingestion.sec_downloader AAPL
@@ -150,52 +174,52 @@ docker compose exec api python -m ingestion.ingest_company AAPL
 docker compose exec api python -m vectorstore.financial_extractor
 ```
 
-Stop everything with `docker compose down`. Don't run a local uvicorn or streamlit at the same time as the containers, since they'll fight over the same ports.
+Stop it all with `docker compose down`. Just don't run the local backend or interface at the same time as the containers, since they'll compete for the same ports.
 
-## Deploying to the cloud
+## How the live version is deployed
 
-The live version runs on Streamlit Community Cloud, which only runs the Streamlit app, no separate API server. So the UI calls the RAG functions directly instead of going through HTTP. The language model is Groq and the database is Neon, both free.
+The live site runs on Streamlit Community Cloud, which only runs the interface, not a separate backend. So in the cloud, the interface talks to the search-and-answer logic directly. The language model is Groq and the database is Neon, both on their free tiers.
 
-The steps, roughly: get a free Groq API key and a free Neon project with the vector extension enabled, load your data into Neon, then deploy the repo on Streamlit Community Cloud with `ui/streamlit_app.py` as the entry point and Python 3.11. The `GROQ_API_KEY` and `DATABASE_URL` go in the app's secrets manager rather than the `.env`, since `.env` isn't pushed to GitHub.
+In short: you get a free Groq key and a free Neon database, load your data into Neon, and deploy the project on Streamlit Community Cloud pointing at the interface file. The secret values go into Streamlit's own secrets manager rather than the local file, since the local file isn't part of the public code.
 
-## API endpoints
+## The API, for developers
 
-| Endpoint | Method | Auth | What it does |
+| Endpoint | Method | Needs a key? | What it returns |
 |---|---|---|---|
-| `/` | GET | none | Health check |
-| `/stats` | GET | none | Live knowledge-base stats |
-| `/ask` | POST | API key + rate limit | Ask a question |
-| `/metrics` | GET | none | Extracted financial metrics, optional `?company=` filter |
-| `/companies` | GET | none | Companies with extracted metrics |
-| `/logs` | GET | none | Recent request log entries, `?n=` to set count |
+| `/` | GET | no | A health check |
+| `/stats` | GET | no | Live stats about what's loaded |
+| `/ask` | POST | yes | An answer to your question |
+| `/metrics` | GET | no | Extracted financial figures |
+| `/companies` | GET | no | The companies that have figures |
+| `/logs` | GET | no | Recent request activity |
 
-## Project layout
+## How the project is organized
 
 ```
 financial-doc-intelligence/
-├── ingestion/          # download, parse, chunk, tag, embed, load
-├── embeddings/         # MiniLM embedding generation
-├── vectorstore/        # schema, DB connection, search, stats, extraction
-├── rag/                # retrieval and the prompt-and-answer chain
-├── llm/                # Ollama / Groq dual-backend client
-├── analytics/          # company detection from question text
-├── api/                # FastAPI app with auth and rate limiting
-├── ui/                 # Streamlit interface
-├── evaluation/         # gold Q&A set and the eval harness
-├── logs/               # structured request logger
-├── tests/              # pytest suite
-├── .github/workflows/  # CI
+├── ingestion/      Download, read, split, tag, and load the filings
+├── embeddings/     Turn text into meaning vectors
+├── vectorstore/    Database, search, stats, and figure extraction
+├── rag/            Find relevant text and generate the answer
+├── llm/            Talk to either Ollama or Groq
+├── analytics/      Detect which company a question is about
+├── api/            The backend, with key protection and rate limiting
+├── ui/             The Streamlit interface
+├── evaluation/     The accuracy check and its question set
+├── logs/           Request logging
+├── tests/          The automated test suite
+├── .github/        Continuous integration setup
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
 └── README.md
 ```
 
-## What's not perfect
+## Honest limitations
 
-Operating income and gross margin don't always get extracted cleanly. The model reliably finds revenue and net income, but the tabular layout for those other two trips it up sometimes. Microsoft's extracted revenue is about one percent off the real figure and Tesla's about three percent, which is why the numbers are marked experimental. On local hardware the language model runs on CPU, so answers take a few seconds to half a minute. The cloud version is much faster through Groq. And the API key in the repo is just a demo placeholder, so set a real one for any actual deployment.
+A few things worth knowing. The extraction of operating income and gross margin isn't always reliable, the model handles revenue and net income well but sometimes stumbles on those two because of how they're laid out in the tables. Microsoft's extracted revenue is off by about one percent and Tesla's by about three, which is why the figures are marked experimental. Running locally, the language model uses your CPU, so answers take a few seconds to half a minute; the cloud version is much faster. And the API key included in the code is just a placeholder, so set a real one before deploying anywhere that matters.
 
-## A note on the questions you can ask
+## Some questions you can try
 
 ```
 Who is the CEO of Microsoft?
@@ -205,6 +229,10 @@ Who is the CFO of Apple?
 What is Microsoft's main cloud product?
 What does Tesla manufacture?
 ```
+
+## Where the data comes from
+
+All filings are from SEC EDGAR (https://www.sec.gov/edgar), which is public and free, with no API key required.
 
 ## Author
 
