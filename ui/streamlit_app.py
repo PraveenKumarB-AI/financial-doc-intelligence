@@ -23,15 +23,20 @@ try:
     from vectorstore.database import get_connection as _gc
     _conn = _gc()
     _cur = _conn.cursor()
-    _cur.execute("SELECT current_database(), current_user;")
-    _db, _user = _cur.fetchone()
-    _cur.execute("SELECT tablename FROM pg_tables WHERE schemaname='public';")
-    _tables = [r[0] for r in _cur.fetchall()]
+    _cur.execute("SELECT current_database(), current_schema(), current_user;")
+    _db, _schema, _user = _cur.fetchone()
+    _cur.execute("SELECT schemaname, tablename FROM pg_tables WHERE tablename IN ('document_chunks','financial_metrics','documents');")
+    _found = _cur.fetchall()
+    _cur.execute("SELECT COUNT(*) FROM document_chunks;")
+    try:
+        _count = _cur.fetchone()[0]
+    except Exception as _ce:
+        _count = f"query failed: {_ce}"
     _cur.close()
     _conn.close()
-    st_debug.warning(f"DEBUG — database: {_db} | user: {_user} | tables: {_tables}")
+    st_debug.warning(f"DB={_db} | schema={_schema} | user={_user} | found_tables={_found} | chunk_count={_count}")
 except Exception as _e:
-    st_debug.error(f"DEBUG — connection failed: {_e}")
+    st_debug.error(f"DEBUG connection failed: {_e}")
 # ---- END DEBUG ----
 from vectorstore.stats import get_stats
 from vectorstore.database import get_connection
