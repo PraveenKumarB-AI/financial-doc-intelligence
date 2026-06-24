@@ -1,9 +1,10 @@
 import os
 import psycopg2
+from dotenv import load_dotenv
 
-# Try to read Streamlit secrets if running inside Streamlit (cloud deploy).
-# This is wrapped in try/except so the file still works for the API/CLI
-# where streamlit isn't running.
+load_dotenv()
+
+
 def _get_database_url():
     url = os.getenv("DATABASE_URL")
     if url:
@@ -21,7 +22,6 @@ def get_connection():
     database_url = _get_database_url()
     if database_url:
         return psycopg2.connect(database_url)
-    # Local fallback (Ollama + local Postgres)
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
         port=os.getenv("DB_PORT", "5432"),
